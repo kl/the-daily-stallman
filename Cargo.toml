@@ -1,0 +1,31 @@
+[package]
+name = "the-daily-stallman"
+version = "0.1.0"
+authors = ["Kalle Lindström <kalind@posteo.se>"]
+edition = "2018"
+description = "Read the news like Stallman would. No JavaScript required."
+repository = "https://github.com/kl/the-daily-stallman"
+readme = "README.md"
+keywords = ["text extraction", "news", "RMS", "Stallman", "Richard Stallman"]
+categories = ["command-line-utilities"]
+exclude = ["/tests"]
+license = "GPL-3.0"
+
+[dependencies]
+ureq = { version = "2.0", features = ["charset"] }
+rss = "1.9"
+anyhow = "1.0"
+rayon = "1.5"
+extrablatt = "0.1"
+url = "2.1"
+kuchiki = "0.8"
+selectors = "0.22"
+regex = "1.4"
+lazy_static = "1.4"
+html5ever = "0.25"
+clap = "2.33"
+chrono = "0.4"
+
+[[bin]]
+path = "src/main.rs"
+name = "tds"
