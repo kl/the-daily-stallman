@@ -56,7 +56,7 @@ pub struct ArticleExtractor<E: Extractor> {
 
 impl<E: Extractor> ArticleExtractor<E> {
     pub fn extract(&self) -> AnyResult<Article> {
-        let parts = self.extract_article_parts()?;
+        let parts = self.extract_article_parts();
 
         let html = self.article_html(parts.article_node)?;
 
@@ -114,7 +114,23 @@ impl<E: Extractor> ArticleExtractor<E> {
             .collect()
     }
 
-    fn extract_article_parts(&self) -> AnyResult<ExtractionParts> {
+    fn default_article_node(&self) -> Option<NodeRef> {
+        self.extractor
+            .article_node(&self.doc, Language::English)
+            .map(|n| select_to_kuchiki(&n))
+    }
+
+    fn warn<T>(&self, option: Option<T>, msg: &str) -> Option<T> {
+        if option.is_none() && self.print_warnings {
+            println!(
+                "WARNING: ({}) {} - falling back on default extractor",
+                self.url, msg
+            );
+        }
+        option
+    }
+
+    fn extract_article_parts(&self) -> ExtractionParts {
         let site_domain = site_domain(&self.url).unwrap_or_default();
 
         let parts = match site_domain.as_str() {
@@ -125,11 +141,16 @@ impl<E: Extractor> ArticleExtractor<E> {
             "cnn.com" => self.cnn_article(),
             "theatlantic.com" => self.theatlantic_article(),
             "vice.com" => self.vice_article(),
+            "dailykos.com" => self.dailykos_article(),
             _ => None,
         };
 
-        Ok(parts.unwrap_or_else(ExtractionParts::empty))
+        parts.unwrap_or_else(ExtractionParts::empty)
     }
+
+    //
+    // --- CUSTOM ARTICLE EXTRACTORS ---
+    //
 
     fn commondreams_article(&self) -> Option<ExtractionParts> {
         let article = self.default_article_node()?;
@@ -242,20 +263,19 @@ impl<E: Extractor> ArticleExtractor<E> {
         }
     }
 
-    fn default_article_node(&self) -> Option<NodeRef> {
-        self.extractor
-            .article_node(&self.doc, Language::English)
-            .map(|n| select_to_kuchiki(&n))
-    }
-
-    fn warn<T>(&self, option: Option<T>, msg: &str) -> Option<T> {
-        if option.is_none() && self.print_warnings {
-            println!(
-                "WARNING: ({}) {} - falling back on default extractor",
-                self.url, msg
-            );
-        }
-        option
+    fn dailykos_article(&self) -> Option<ExtractionParts> {
+        let article = self.warn(
+            self.doc
+                .find(
+                    Name("div")
+                        .and(Attr("class", "story-column"))
+                        .child(Name("noscript")),
+                )
+                .next(),
+            "could not extract article node",
+        )?;
+        let article = kuchiki::parse_html().one(article.text());
+        Some(ExtractionParts::with_article(article))
     }
 }
 
