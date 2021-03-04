@@ -28,13 +28,20 @@ fn main() {
 }
 
 fn run() -> AnyResult<()> {
-    let opts = Opts::parse(std::env::args())?;
-    let mut items = feed::items().context("failed to get items from RSS feed")?;
-    filter_items(&mut items, &opts);
-    let resolved = resolve::resolve_items(items);
-    let html = convert::html(&resolved);
-    std::fs::write(&opts.output_file, &html)?;
-    //io::stdout().write_all(html.as_bytes())?;
+    let mut opts = Opts::parse(std::env::args())?;
+
+    if let Some(debug) = opts.debug.take() {
+        let resolved = resolve::resolve_items(vec![debug]);
+        if let Some(article) = resolved.first().and_then(|r| r.articles.first()) {
+            println!("{:#?}", article);
+        }
+    } else {
+        let mut items = feed::items().context("failed to get items from RSS feed")?;
+        filter_items(&mut items, &opts);
+        let resolved = resolve::resolve_items(items);
+        let html = convert::html(&resolved);
+        std::fs::write(&opts.output_file, &html)?;
+    }
     Ok(())
 }
 

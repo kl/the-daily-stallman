@@ -1,3 +1,4 @@
+use crate::feed::Item;
 use anyhow::Result as AnyResult;
 use clap::{App, Arg, ArgMatches};
 use std::ffi::OsString;
@@ -7,6 +8,7 @@ use std::path::PathBuf;
 pub struct Opts {
     pub output_file: PathBuf,
     pub yesterday: bool,
+    pub debug: Option<Item>,
 }
 
 impl Opts {
@@ -34,11 +36,18 @@ impl Opts {
                     .long("yesterday")
                     .help("Fetches yesterday's articles instead of today's."),
             )
+            .arg(
+                Arg::with_name("debug")
+                    .long("debug")
+                    .takes_value(true)
+                    .help("Prints extraction information given an article URL."),
+            )
             .get_matches_from(iter);
 
         Ok(Opts {
             output_file: output_file(&matches)?,
             yesterday: matches.is_present("yesterday"),
+            debug: debug(&matches),
         })
     }
 }
@@ -56,4 +65,17 @@ fn output_file(matches: &ArgMatches) -> AnyResult<PathBuf> {
     } else {
         path
     })
+}
+
+fn debug(matches: &ArgMatches) -> Option<Item> {
+    if let Some(url) = matches.value_of("debug") {
+        Some(Item {
+            title: "".to_string(),
+            date: None,
+            description: "".to_string(),
+            links: vec![url.to_string()],
+        })
+    } else {
+        None
+    }
 }
