@@ -11,14 +11,19 @@ mod options;
 mod resolve;
 mod util;
 
+use crate::options::Opts;
 use anyhow::Result as AnyResult;
 use anyhow::*;
-use feed::Item;
-use std::process;
-
 use chrono::{Duration, Local};
+use feed::Item;
+use std::path::PathBuf;
+use std::process;
+use std::process::Command;
 
-use crate::options::Opts;
+lazy_static! {
+    static ref TEMP_FILE: PathBuf =
+        std::env::temp_dir().join("123679816239the-daily-stallman.html");
+}
 
 fn main() {
     if let Err(err) = run() {
@@ -28,6 +33,7 @@ fn main() {
 }
 
 fn run() -> AnyResult<()> {
+    remove_temp_file_if_exists();
     let mut opts = Opts::parse(std::env::args())?;
 
     if let Some(debug) = opts.debug.take() {
@@ -40,9 +46,15 @@ fn run() -> AnyResult<()> {
         filter_items(&mut items, &opts);
         let resolved = resolve::resolve_items(items);
         let html = convert::html(&resolved);
-        std::fs::write(&opts.output_file, &html)?;
+        output_html(&html, &opts)?;
     }
     Ok(())
+}
+
+fn remove_temp_file_if_exists() {
+    if TEMP_FILE.is_file() {
+        let _ = std::fs::remove_file(TEMP_FILE.as_path());
+    }
 }
 
 fn filter_items(items: &mut Vec<Item>, opts: &Opts) {
@@ -54,4 +66,18 @@ fn filter_items(items: &mut Vec<Item>, opts: &Opts) {
     .date();
 
     items.retain(|item| item.date.map(|d| d.date()) == Some(target_date));
+}
+
+fn output_html(html: &str, opts: &Opts) -> AnyResult<()> {
+    match (opts.output_file.as_ref(), opts.browser.as_ref()) {
+        (Some(output), _) => {
+            std::fs::write(&output, &html)?;
+        }
+        (_, Some(browser)) => {
+            std::fs::write(TEMP_FILE.as_path(), html)?;
+            Command::new(browser).arg(TEMP_FILE.as_path()).spawn()?;
+        }
+        _ => {}
+    }
+    Ok(())
 }

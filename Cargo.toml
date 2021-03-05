@@ -25,6 +25,7 @@ lazy_static = "1.4"
 html5ever = "0.25"
 clap = "2.33"
 chrono = "0.4"
+which = "4.0"
 
 [[bin]]
 path = "src/main.rs"

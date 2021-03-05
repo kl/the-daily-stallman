@@ -10,14 +10,19 @@ a single HTML file.
 ```cargo install the-daily-stallman```
 
 ## Usage
-To run the-daily-stallman and open HTML file in Firefox, run:
+To run the-daily-stallman and save the HTML ouput in a file called `tds.html` in the current directory:
 ```
-tds && firefox tds.html
+tds
 ```
 
 Use the `-o` flag to change where the HTML is written to:
 ```
 tds -o ~/news.html
+```
+
+Use the `-b` flag to write to a temporary file that is opened automatically in your browser:
+```
+tds -b firefox
 ```
 
 By default only the articles for the current day are downloaded. Yesterday's articles can be downloaded with 
@@ -27,5 +32,7 @@ tds --yesterday
 ```
 
 ## TODO
+* More options for what articles to fetch.
 * Enable full offline reading by downloading article images.
 * Add feature to output epub/mobi instead of HTML for reading on e-readers.
+* Table of contents.

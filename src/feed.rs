@@ -3,10 +3,10 @@ use anyhow::*;
 use chrono::{DateTime, Local};
 use kuchiki::traits::TendrilSink;
 use rss::Channel;
-use std::io::Read;
-use std::time::Duration;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::io::Read;
+use std::time::Duration;
 
 /// A stallman.org news feed item.
 #[derive(Debug)]

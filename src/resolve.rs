@@ -1,3 +1,4 @@
+use crate::extract::{Article, ArticleExtractor};
 use crate::feed::Item;
 use anyhow::Result as AnyResult;
 use anyhow::*;
@@ -5,10 +6,9 @@ use extrablatt::select::document::Document;
 use extrablatt::DefaultExtractor;
 use rayon::prelude::*;
 use std::str::FromStr;
-use crate::extract::{Article, ArticleExtractor};
-use url::Url;
-use ureq::{AgentBuilder, Agent};
 use std::time::Duration;
+use ureq::{Agent, AgentBuilder};
+use url::Url;
 
 #[derive(Debug)]
 pub struct ResolvedItem {
