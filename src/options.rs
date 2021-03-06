@@ -9,8 +9,15 @@ use std::path::PathBuf;
 pub struct Opts {
     pub output_file: Option<PathBuf>,
     pub browser: Option<PathBuf>,
-    pub yesterday: bool,
+    pub fetch: FetchType,
     pub debug: Option<Item>,
+}
+
+#[derive(Debug)]
+pub enum FetchType {
+    Today,
+    Yesterday,
+    Latest(usize),
 }
 
 impl Opts {
@@ -47,9 +54,23 @@ impl Opts {
                     ),
             )
             .arg(
+                Arg::with_name("today")
+                    .long("today")
+                    .help("Fetches today's articles."),
+            )
+            .arg(
                 Arg::with_name("yesterday")
                     .long("yesterday")
-                    .help("Fetches yesterday's articles instead of today's."),
+                    .conflicts_with("today")
+                    .help("Fetches yesterday's articles."),
+            )
+            .arg(
+                Arg::with_name("latest")
+                    .long("latest")
+                    .short("l")
+                    .takes_value(true)
+                    .conflicts_with("yesterday")
+                    .help("Fetches the latest N articles from the feed."),
             )
             .arg(
                 Arg::with_name("debug")
@@ -62,7 +83,7 @@ impl Opts {
         Ok(Opts {
             output_file: output_file(&matches)?,
             browser: browser(&matches)?,
-            yesterday: matches.is_present("yesterday"),
+            fetch: fetch(&matches)?,
             debug: debug(&matches),
         })
     }
@@ -92,6 +113,17 @@ fn browser(matches: &ArgMatches) -> AnyResult<Option<PathBuf>> {
         Ok(Some(exe))
     } else {
         Ok(None)
+    }
+}
+
+fn fetch(matches: &ArgMatches) -> AnyResult<FetchType> {
+    if matches.is_present("today") {
+        Ok(FetchType::Today)
+    } else if matches.is_present("yesterday") {
+        Ok(FetchType::Yesterday)
+    } else {
+        let latest: usize = matches.value_of("latest").unwrap_or("10").parse()?;
+        Ok(FetchType::Latest(latest))
     }
 }
 

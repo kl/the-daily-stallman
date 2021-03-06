@@ -11,14 +11,14 @@ mod options;
 mod resolve;
 mod util;
 
-use crate::options::Opts;
+use crate::options::{Opts, FetchType};
 use anyhow::Result as AnyResult;
 use anyhow::*;
 use chrono::{Duration, Local};
 use feed::Item;
 use std::path::PathBuf;
-use std::process;
 use std::process::Command;
+use std::{fs, process};
 
 lazy_static! {
     static ref TEMP_FILE: PathBuf =
@@ -44,9 +44,14 @@ fn run() -> AnyResult<()> {
     } else {
         let mut items = feed::items().context("failed to get items from RSS feed")?;
         filter_items(&mut items, &opts);
-        let resolved = resolve::resolve_items(items);
-        let html = convert::html(&resolved);
-        output_html(&html, &opts)?;
+
+        if !items.is_empty() {
+            let resolved = resolve::resolve_items(items);
+            let html = convert::html(&resolved);
+            output_html(&html, &opts)?;
+        } else {
+            println!("No articles found. Try a different filter.")
+        }
     }
     Ok(())
 }
@@ -58,26 +63,40 @@ fn remove_temp_file_if_exists() {
 }
 
 fn filter_items(items: &mut Vec<Item>, opts: &Opts) {
-    let target_date = if opts.yesterday {
-        Local::now() - Duration::days(1)
-    } else {
-        Local::now()
-    }
-    .date();
+    match opts.fetch {
+        FetchType::Today | FetchType::Yesterday => {
+            let target_date = if let FetchType::Yesterday = opts.fetch {
+                Local::now() - Duration::days(1)
+            } else {
+                Local::now()
+            }
+            .date();
 
-    items.retain(|item| item.date.map(|d| d.date()) == Some(target_date));
+            items.retain(|item| item.date.map(|d| d.date()) == Some(target_date));
+        },
+        FetchType::Latest(n) => {
+            let mut i = 0;
+            items.retain(|_| {
+                let keep = i < n;
+                i += 1;
+                keep
+            });
+        }
+    }
 }
 
 fn output_html(html: &str, opts: &Opts) -> AnyResult<()> {
     match (opts.output_file.as_ref(), opts.browser.as_ref()) {
         (Some(output), _) => {
-            std::fs::write(&output, &html)?;
+            fs::write(&output, &html)?;
         }
         (_, Some(browser)) => {
-            std::fs::write(TEMP_FILE.as_path(), html)?;
+            fs::write(TEMP_FILE.as_path(), html)?;
             Command::new(browser).arg(TEMP_FILE.as_path()).spawn()?;
         }
-        _ => {}
+        (None, None) => {
+            fs::write("tds.html", &html)?;
+        }
     }
     Ok(())
 }

@@ -1,3 +1,7 @@
+0.3.0
+    - fixed bug where no output was written if the --output option wasn't used
+    - added option to fetch the latest N articles
+
 0.2.0
     - fixed dailykos.com articles not extracting.
     - added -b flag to open output directly in the browser.
