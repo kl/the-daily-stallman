@@ -20,6 +20,7 @@ pub fn do_global_filtering(node: &NodeRef, url: &Url) {
             r#"[class*="sharing"]"#,
             r#"[class*="video"]"#,
             r#"[class*="social"]"#,
+            r#"[class*="outbrain"]"#,
         ],
     );
     remove_all_attr(node, &["style"]);
