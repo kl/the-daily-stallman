@@ -208,7 +208,7 @@ impl<E: Extractor> ArticleExtractor<E> {
                 "div[class^='youtube-']",
                 "*[class*='creditStyling']",
                 "*[class*='footerStyling']",
-                "*k[class*='plusStyling']",
+                "*[class*='plusStyling']",
             ],
         );
 

@@ -11,13 +11,13 @@ mod options;
 mod resolve;
 mod util;
 
-use crate::options::{Opts, FetchType};
+use crate::options::{FetchType, Opts};
 use anyhow::Result as AnyResult;
 use anyhow::*;
 use chrono::{Duration, Local};
 use feed::Item;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::{fs, process};
 
 lazy_static! {
@@ -42,7 +42,7 @@ fn run() -> AnyResult<()> {
             println!("{:#?}", article);
         }
     } else {
-        let mut items = feed::items().context("failed to get items from RSS feed")?;
+        let mut items = feed::items().context("failed to get items from RSS feed.")?;
         filter_items(&mut items, &opts);
 
         if !items.is_empty() {
@@ -73,7 +73,7 @@ fn filter_items(items: &mut Vec<Item>, opts: &Opts) {
             .date();
 
             items.retain(|item| item.date.map(|d| d.date()) == Some(target_date));
-        },
+        }
         FetchType::Latest(n) => {
             let mut i = 0;
             items.retain(|_| {
@@ -92,7 +92,11 @@ fn output_html(html: &str, opts: &Opts) -> AnyResult<()> {
         }
         (_, Some(browser)) => {
             fs::write(TEMP_FILE.as_path(), html)?;
-            Command::new(browser).arg(TEMP_FILE.as_path()).spawn()?;
+            Command::new(browser)
+                .arg(TEMP_FILE.as_path())
+                .stdout(Stdio::null())
+                .stdin(Stdio::null())
+                .spawn()?;
         }
         (None, None) => {
             fs::write("tds.html", &html)?;
