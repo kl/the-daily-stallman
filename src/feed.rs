@@ -1,3 +1,4 @@
+use crate::util;
 use anyhow::Result as AnyResult;
 use anyhow::*;
 use chrono::{DateTime, Local};
@@ -81,7 +82,13 @@ fn parse_article_links(rss_item: &rss::Item) -> AnyResult<Vec<String>> {
             let attrs = a.attributes.borrow();
             attrs.get("href").map(str::to_string)
         })
-        .filter(|a| !a.starts_with("https://stallman.org") && !a.starts_with("http://stallman.org"))
+        .filter(|a| {
+            util::is_http(a)
+                && !a.starts_with("https://stallman.org")
+                && !a.starts_with("https://www.stallman.org")
+                && !a.starts_with("http://stallman.org")
+                && !a.starts_with("http://www.stallman.org")
+        })
         .collect::<Vec<String>>();
 
     // Sometimes RMS gets a bit silly and puts multiple links to the same article so we use
@@ -148,8 +155,12 @@ mod tests {
 
     #[test]
     fn stallman_org_links_are_removed() {
-        let desc = r#"I'm a <a href="https://stallman.org/archives/2018-sep-dec.html#26_October_
-            2018_(Khashoggi_admission)">bad</a> link."#;
+        let desc = r#"
+            I'm a <a href="https://stallman.org/archives/2018-sep-dec.html#26_October_
+            2018_(Khashoggi_admission)">bad</a> link.
+            Cursed <a href="https://www.stallman.org/archives/2018-sep-dec.html#26_October_
+            2018_(Khashoggi_admission)">www</a> link.
+            "#;
 
         let mut item = rss::Item::default();
         item.set_description(desc.to_string());
