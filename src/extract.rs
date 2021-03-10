@@ -4,12 +4,14 @@ use anyhow::Result as AnyResult;
 use anyhow::*;
 use extrablatt::date::Date;
 use extrablatt::select::document::Document;
+use extrablatt::select::node::Node;
 use extrablatt::select::predicate::{Attr, Class, Name, Predicate};
 use extrablatt::{Extractor, Language};
 use html5ever::{local_name, namespace_url, ns, QualName};
 use kuchiki::traits::*;
 use kuchiki::NodeRef;
 use regex::Regex;
+use std::collections::HashMap;
 use std::str;
 use url::Url;
 
@@ -55,6 +57,7 @@ pub struct ArticleExtractor<E: Extractor> {
 }
 
 impl<E: Extractor> ArticleExtractor<E> {
+
     pub fn extract(&self) -> AnyResult<Article> {
         let parts = self.extract_article_parts();
 
@@ -114,10 +117,42 @@ impl<E: Extractor> ArticleExtractor<E> {
             .collect()
     }
 
+    /// Try to extract the article node with extrablatt or if that fails try to extract it
+    /// using the score_divs function.
     fn default_article_node(&self) -> Option<NodeRef> {
         self.extractor
             .article_node(&self.doc, Language::English)
             .map(|n| select_to_kuchiki(&n))
+            .or_else(|| self.score_divs().get(0).map(|n| select_to_kuchiki(&n.0)))
+    }
+
+    /// Finds all <p> tags in the document and then finds their first <div>
+    /// ancestor (if there is one). These divs are then scored based on how much text their
+    /// descendant <p> tags contains, and sorted in descending order.
+    fn score_divs(&self) -> Vec<(Node, usize)> {
+        let ptags = self.doc.find(Name("p"));
+        let mut text_count: HashMap<usize, (Node, usize)> = HashMap::new();
+
+        for p in ptags {
+            if let Some(div) = div_ancestor(p) {
+                let mut entry = text_count.entry(div.index()).or_insert((div, 0));
+                (*entry).1 += p.text().len();
+            }
+        }
+
+        let mut ret = text_count.values().cloned().collect::<Vec<_>>();
+        ret.sort_unstable_by_key(|v| -(v.1 as i64));
+        return ret;
+
+        fn div_ancestor(mut node: Node) -> Option<Node> {
+            while let Some(parent) = node.parent() {
+                if parent.name() == Some("div") {
+                    return Some(parent);
+                }
+                node = parent;
+            }
+            None
+        }
     }
 
     fn warn<T>(&self, option: Option<T>, msg: &str) -> Option<T> {
@@ -142,6 +177,7 @@ impl<E: Extractor> ArticleExtractor<E> {
             "theatlantic.com" => self.theatlantic_article(),
             "vice.com" => self.vice_article(),
             "dailykos.com" => self.dailykos_article(),
+            "france24.com" => self.france24_article(),
             _ => None,
         };
 
@@ -154,9 +190,7 @@ impl<E: Extractor> ArticleExtractor<E> {
 
     fn commondreams_article(&self) -> Option<ExtractionParts> {
         let article = self.default_article_node()?;
-
         remove_all(&article, &["div.block-inject", "div.newswire-end"]);
-
         Some(ExtractionParts::with_article(article))
     }
 
@@ -167,10 +201,14 @@ impl<E: Extractor> ArticleExtractor<E> {
             &article,
             &[
                 "div.submeta",
+                "div.block-share",
                 "div[id^='rich-link-']",
+                "div[data-component='rich-link']",
                 "div[id^='guide-']",
                 "div[class^='youtube-']",
-                "div.block-share",
+                "*[class*='creditStyling']",
+                "*[class*='footerStyling']",
+                "*k[class*='plusStyling']",
             ],
         );
 
@@ -218,7 +256,10 @@ impl<E: Extractor> ArticleExtractor<E> {
 
     fn cnn_article(&self) -> Option<ExtractionParts> {
         let article = self.default_article_node()?;
-        remove_all(&article, &["div.el__article--embed"]);
+        remove_all(
+            &article,
+            &["div.el__article--embed", "section#story-bottom"],
+        );
 
         let wrapper = NodeRef::new_element(QualName::new(None, ns!(html), local_name!("p")), None);
         filter::wrap_all(&article, "div.zn-body__paragraph", wrapper);
@@ -277,6 +318,12 @@ impl<E: Extractor> ArticleExtractor<E> {
         let article = kuchiki::parse_html().one(article.text());
         Some(ExtractionParts::with_article(article))
     }
+
+    fn france24_article(&self) -> Option<ExtractionParts> {
+        let article = self.default_article_node()?;
+        remove_all(&article, &[r#"[class*="o-self-promo"]"#]);
+        Some(ExtractionParts::with_article(article))
+    }
 }
 
 fn site_domain(url: &Url) -> Option<String> {
@@ -309,10 +356,39 @@ fn select_to_kuchiki(node: &extrablatt::select::node::Node) -> NodeRef {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use extrablatt::DefaultExtractor;
 
     #[test]
     fn converts_node_to_html_correctly() {
         let node = kuchiki::parse_html().one("<div>hello</div>");
         assert_eq!("<div>hello</div>", node_to_html(node));
+    }
+
+    #[test]
+    fn scores_divs_correctly() {
+        let html = "<html>
+            <head />
+            <body>
+                <div><p><strong>strong text</strong></p></div>
+                <div>
+                    <p>Some text.</p>
+                    <p>And some more.</p>
+                </div>
+                <div>no p</div>
+            </body>
+        </html>";
+
+        let extractor = ArticleExtractor {
+            extractor: DefaultExtractor::default(),
+            url: Url::parse("http://www.example.com").unwrap(),
+            doc: Document::from(html),
+            print_warnings: false,
+        };
+
+        let score = extractor.score_divs();
+
+        assert_eq!(score.len(), 2);
+        assert_eq!(score[0].1, 24);
+        assert_eq!(score[1].1, 11);
     }
 }
