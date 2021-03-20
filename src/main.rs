@@ -40,6 +40,8 @@ fn run() -> AnyResult<()> {
         let resolved = resolve::resolve_items(vec![debug]);
         if let Some(article) = resolved.first().and_then(|r| r.articles.first()) {
             println!("{:#?}", article);
+            let html = convert::html(&resolved);
+            output_html(&html, &opts)?;
         }
     } else {
         let mut items = feed::items().context("failed to get items from RSS feed.")?;
