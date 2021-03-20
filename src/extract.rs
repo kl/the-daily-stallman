@@ -57,7 +57,6 @@ pub struct ArticleExtractor<E: Extractor> {
 }
 
 impl<E: Extractor> ArticleExtractor<E> {
-
     pub fn extract(&self) -> AnyResult<Article> {
         let parts = self.extract_article_parts();
 
@@ -258,14 +257,16 @@ impl<E: Extractor> ArticleExtractor<E> {
         let article = self.default_article_node()?;
         remove_all(
             &article,
-            &["div.el__article--embed", "section#story-bottom"],
+            &[
+                "div.el__article--embed",
+                "section#story-bottom",
+                "*.cn-zoneAdContainer",
+                "*.zn-body__read-more",
+            ],
         );
 
-        let wrapper = NodeRef::new_element(QualName::new(None, ns!(html), local_name!("p")), None);
-        filter::wrap_all(&article, "div.zn-body__paragraph", wrapper);
-        //remove_all(&article, &["div.zn-body__paragraph"]);
-
-        //dbg!("{:#?}", article.to_string());
+        let wrapper = QualName::new(None, ns!(html), local_name!("p"));
+        filter::replace_all(&article, "div.zn-body__paragraph", &wrapper);
 
         Some(ExtractionParts::with_article(article))
     }

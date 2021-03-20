@@ -1,6 +1,7 @@
 mod img_data_src_filter;
 mod relative_links_filter;
 
+use html5ever::QualName;
 use img_data_src_filter::ImgDataSrcFilter;
 use kuchiki::NodeRef;
 use relative_links_filter::RelativeLinksFilter;
@@ -16,6 +17,7 @@ pub fn do_global_filtering(node: &NodeRef, url: &Url) {
             "button",
             "form",
             "aside",
+            "*.ad",
             r#"[class*="share"]"#,
             r#"[class*="sharing"]"#,
             r#"[class*="video"]"#,
@@ -70,52 +72,32 @@ pub fn remove_all_class(node: &NodeRef, classes: &[&str]) {
     }
 }
 
-pub fn wrap_all(base: &NodeRef, selector: &str, wrapper: NodeRef) -> usize {
+/// Replaces all nodes matched by `selector` with a new node created with `name`.
+/// The children of the replaced node are appended to the new node.
+pub fn replace_all(base: &NodeRef, selector: &str, name: &QualName) {
     if let Ok(selection) = base.select(&selector) {
-        // This needs to be collected to a vec first before removing nodes.
-        let targets: Vec<_> = selection.collect();
-        for target in &targets {
+        for target in selection {
             let node = target.as_node();
             match (node.next_sibling(), node.parent()) {
                 (Some(sibling), _) => {
-                    node.detach();
-                    let wrapper_clone = wrapper.clone();
-                    wrapper_clone.append(node.clone());
-                    sibling.insert_before(wrapper_clone);
+                    let new = replace_node(node, name);
+                    sibling.insert_before(new);
                 }
                 (_, Some(parent)) => {
-                    node.detach();
-                    let wrapper_clone = wrapper.clone();
-                    wrapper_clone.append(node.clone());
-                    parent.append(wrapper_clone)
+                    let new = replace_node(node, name);
+                    parent.append(new);
                 }
-                _ => {
-                    break;
-                }
+                _ => {}
             }
         }
-        targets.len()
-    } else {
-        0
     }
-    // if let Ok(sel) = base.select(selector) {
-    //     let targets = sel.iter.collect::<Vec<_>>();
-    //     for tag in &targets {
-    //         tag.as_node().detach();
-    //         // dbg!("WRAPPING");
-    //         // let wrapper_clone = wrapper.clone();
-    //         // wrapper_clone.append(node.clone());
-    //         // match (node.next_sibling(), node.parent()) {
-    //         //     (Some(sibling), _ ) => {
-    //         //         //sibling.insert_before(wrapper_clone);
-    //         //     },
-    //         //     (_, Some(parent)) => {
-    //         //         //parent.append(wrapper_clone)
-    //         //     }
-    //         //     _ => {
-    //         //         break;
-    //         //     },
-    //         // }
-    //     }
-    // }
+
+    fn replace_node(node: &NodeRef, name: &QualName) -> NodeRef {
+        node.detach();
+        let new = NodeRef::new_element(name.clone(), None);
+        for child in node.children() {
+            new.append(child);
+        }
+        new
+    }
 }
