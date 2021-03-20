@@ -1,4 +1,4 @@
-0.3.0
+0.3.1
     - multiple fixes for article extraction for various sites
     - added a new fallback extractor in case the article could not be extracted
     - fixed CNN articles not displaying paragraphs correctly
