@@ -1,4 +1,11 @@
 0.3.0
+    - multiple fixes for article extraction for various sites
+    - added a new fallback extractor in case the article could not be extracted
+    - fixed CNN articles not displaying paragraphs correctly
+    - close stdin/stdout of browser process when opening directly in browser
+    - fixed some stallman.org links not being ignored
+
+0.3.0
     - fixed bug where no output was written if the --output option wasn't used
     - added option to fetch the latest N articles
 
